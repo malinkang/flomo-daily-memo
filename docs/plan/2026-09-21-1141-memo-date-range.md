@@ -1,10 +1,10 @@
 ---
 id: 2
 title: Support inclusive date ranges for daily flomo memos
-status: pending
+status: completed
 created_at: 2026-09-21T11:41:47+08:00
-updated_at: 2026-09-21T11:41:47+08:00
-completed_at: null
+updated_at: 2026-09-21T11:44:58+08:00
+completed_at: 2026-09-21T11:44:58+08:00
 ---
 
 ## Objective
@@ -33,3 +33,5 @@ After the implementation commit is published and hosted CI passes, use the GitHu
 ## Change Log
 
 - 2026-09-21T11:41:47+08:00: Created the bounded date-range implementation plan and recorded the requested hosted backfill verification.
+- 2026-09-21T11:43:03+08:00: Implemented inclusive CLI/workflow ranges, fail-fast sequential writes, progress reporting, and credential-free previews; validating before publication.
+- 2026-09-21T11:44:58+08:00: Implementation verified: 33 offline tests, Python compilation, actionlint, and the inclusive 18-day dry-run passed. Ready for hosted CI and the user-authorized actual Action run.

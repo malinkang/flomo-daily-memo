@@ -7,7 +7,15 @@ on:
   workflow_dispatch:
     inputs:
       date:
-        description: '笔记日期 YYYY-MM-DD，留空使用北京时间今天'
+        description: '单日 YYYY-MM-DD；批量创建时留空'
+        required: false
+        type: string
+      start_date:
+        description: '批量开始日期 YYYY-MM-DD，与 date 互斥'
+        required: false
+        type: string
+      end_date:
+        description: '批量结束日期 YYYY-MM-DD（包含当天），留空使用北京时间今天'
         required: false
         type: string
       dry_run:
@@ -26,7 +34,7 @@ concurrency:
 jobs:
   create-memo:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 30
     steps:
       - name: Check configuration
         id: config
@@ -71,11 +79,19 @@ jobs:
           FLOMO_AUTHORIZATION: ${{ secrets.FLOMO_AUTHORIZATION }}
           FLOMO_DEVICE_ID: ${{ secrets.FLOMO_DEVICE_ID }}
           MEMO_DATE: ${{ inputs.date }}
+          START_DATE: ${{ inputs.start_date }}
+          END_DATE: ${{ inputs.end_date }}
           DRY_RUN: ${{ inputs.dry_run }}
         run: |
           args=()
           if [[ -n "$MEMO_DATE" ]]; then
             args+=(--date "$MEMO_DATE")
+          fi
+          if [[ -n "$START_DATE" ]]; then
+            args+=(--start-date "$START_DATE")
+          fi
+          if [[ -n "$END_DATE" ]]; then
+            args+=(--end-date "$END_DATE")
           fi
           if [[ "$DRY_RUN" == "true" ]]; then
             args+=(--dry-run)
