@@ -1,5 +1,7 @@
 # flomo-daily-memo
 
+[![CI](https://github.com/malinkang/flomo-daily-memo/actions/workflows/ci.yml/badge.svg)](https://github.com/malinkang/flomo-daily-memo/actions/workflows/ci.yml)
+
 通过 GitHub Actions 每天自动创建一条 flomo 日记：
 
 ```text
