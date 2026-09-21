@@ -8,7 +8,7 @@
 #日记 2026-09-21
 ```
 
-默认按北京时间（UTC+8）确定日期，并将笔记创建时间设为当天 00:00。也可以手动指定日期补建笔记。
+默认按北京时间（UTC+8）确定日期，并将笔记创建时间设为当天 00:00。也可以指定单日或日期范围补建笔记，范围内每天创建一条。
 
 ## 配置 GitHub Actions
 
@@ -25,7 +25,16 @@
 也支持用 `FLOMO_AUTHORIZATION` 替代 `FLOMO_TOKEN`；同时配置时优先使用前者。凭证只填入 GitHub Secrets 或本地 `.env`，不要写入代码、Issue 或日志。
 
 5. 在 **Actions** 页面启用工作流。
-6. 选择 **Create Daily Flomo Memo → Run workflow**，勾选 `dry_run` 可先预览；取消勾选才会创建笔记。`date` 留空使用北京时间今天，也可以填写 `YYYY-MM-DD`。
+6. 选择 **Create Daily Flomo Memo → Run workflow**，勾选 `dry_run` 可先预览；取消勾选才会创建笔记。
+
+| 用法 | 输入 |
+| --- | --- |
+| 创建今天 | 日期输入全部留空 |
+| 创建某一天 | 只填写 `date`，例如 `2026-09-21` |
+| 批量创建 | `date` 留空，填写 `start_date` 和 `end_date` |
+| 从某一天补建到今天 | 只填写 `start_date`，结束日期默认北京时间今天 |
+
+日期格式均为 `YYYY-MM-DD`，范围包含开始和结束两天。例如 `start_date=2026-09-04`、`end_date=2026-09-21` 会创建 18 条日记。`date` 不能与范围输入同时填写。运行日志会逐日显示结果、进度和最终数量。
 
 定时任务配置为每天 **16:00 UTC（北京时间次日 00:00）**。GitHub 定时任务可能延迟，实际执行时按北京时间当天确定默认日期。未配置 Secrets 时，定时任务会跳过并提示配置。
 
@@ -53,15 +62,23 @@ python create_daily_memo.py
 # 补建指定日期的日记
 python create_daily_memo.py --date 2026-09-21
 
+# 批量补建 9 月 4 日至 9 月 21 日（包含两端，共 18 天）
+python create_daily_memo.py --start-date 2026-09-04 --end-date 2026-09-21
+
+# 从指定日期补建到北京时间今天
+python create_daily_memo.py --start-date 2026-09-04
+
 # 只预览内容和日期；无需凭证，不发送网络请求
-python create_daily_memo.py --date 2026-09-21 --dry-run
+python create_daily_memo.py --start-date 2026-09-04 --end-date 2026-09-21 --dry-run
 ```
 
 ## 从已有工作流迁移
 
 在新仓库配置自己的 Secrets；GitHub 不支持读回旧仓库的 Secret 值。切换定时任务前，在旧仓库 Actions 中停用对应工作流，避免两个仓库重复创建。
 
-每次实际运行都会创建一条笔记，重复执行同一天会产生重复内容。发生超时或网络错误时，先到 flomo 确认是否已经创建，再决定是否重试。
+每个指定日期都会创建一条笔记，重复执行同一天会产生重复内容。发生超时或网络错误时，先到 flomo 确认是否已经创建，再决定是否重试。
+
+批量任务按日期从早到晚顺序创建，两次创建之间等待 1 秒。遇到第一条失败即停止，不会自动重试；日志会显示已完成数量和失败日期。确认失败日期的笔记状态后，调整 `start_date` 继续剩余日期，避免从头重跑。单次 GitHub Action 最长运行 30 分钟，较长的历史范围可以分批执行。
 
 ## 开发与验证
 

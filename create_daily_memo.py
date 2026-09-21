@@ -5,6 +5,7 @@ import datetime
 import os
 import re
 import sys
+import time
 
 import requests
 from dotenv import load_dotenv
@@ -28,6 +29,25 @@ def get_timestamp_for_date(date_str):
     except ValueError:
         raise MemoError("日期无效，请检查年月日。") from None
     return int(datetime.datetime.combine(date, datetime.time(), BEIJING).timestamp())
+
+
+def get_memo_dates(date_str=None, *, start_date=None, end_date=None, now=None):
+    """Validate the whole selection before writing and return inclusive dates."""
+    if date_str and (start_date or end_date):
+        raise MemoError("date 不能与 start_date 或 end_date 同时使用。")
+    if end_date and not start_date:
+        raise MemoError("使用 end_date 时必须提供 start_date。")
+    today = (now or datetime.datetime.now(BEIJING)).astimezone(BEIJING).date().isoformat()
+    first = start_date or date_str or today
+    last = (end_date or today) if start_date else first
+    get_timestamp_for_date(first)
+    get_timestamp_for_date(last)
+    start = datetime.date.fromisoformat(first)
+    end = datetime.date.fromisoformat(last)
+    if start > end:
+        raise MemoError("开始日期不能晚于结束日期。")
+    return [(start + datetime.timedelta(days=offset)).isoformat()
+            for offset in range((end - start).days + 1)]
 
 
 def build_memo_payload(date_str=None, *, now=None):
@@ -113,14 +133,40 @@ def create_memo(date_str=None, *, dry_run=False):
     print(f"成功！已创建每日笔记：{memo_date}")
 
 
+def create_memos(date_str=None, *, start_date=None, end_date=None, dry_run=False):
+    dates = get_memo_dates(date_str, start_date=start_date, end_date=end_date)
+    operation = "预览" if dry_run else "创建"
+    print(f"计划{operation} {len(dates)} 天：{dates[0]} 至 {dates[-1]}", flush=True)
+    for index, memo_date in enumerate(dates):
+        if index and not dry_run:
+            time.sleep(1)
+        try:
+            create_memo(memo_date, dry_run=dry_run)
+        except MemoError as error:
+            raise MemoError(
+                f"{memo_date} 失败；已完成 {index}/{len(dates)} 天。{error} "
+                "后续日期尚未执行。先确认失败日期是否已创建，再从该日期或下一天继续。"
+            ) from None
+        print(f"进度：{index + 1}/{len(dates)}", flush=True)
+    print(f"批量{operation}完成：{len(dates)}/{len(dates)} 天。", flush=True)
+    return len(dates)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="创建 flomo 每日笔记")
     parser.add_argument("--date", help="指定日期 YYYY-MM-DD；默认北京时间今天")
+    parser.add_argument("--start-date", help="开始日期 YYYY-MM-DD，与 --date 互斥")
+    parser.add_argument("--end-date", help="结束日期 YYYY-MM-DD（包含当天）；默认北京时间今天")
     parser.add_argument("--dry-run", action="store_true", help="仅预览，不需要凭证或网络")
     args = parser.parse_args(argv)
     load_dotenv()
     try:
-        create_memo(args.date, dry_run=args.dry_run)
+        create_memos(
+            args.date,
+            start_date=args.start_date,
+            end_date=args.end_date,
+            dry_run=args.dry_run,
+        )
     except MemoError as error:
         print(f"错误：{error}", file=sys.stderr)
         return 1

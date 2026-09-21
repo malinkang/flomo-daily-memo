@@ -30,3 +30,5 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: Preview without credentials
         run: python create_daily_memo.py --date 2026-09-21 --dry-run
+      - name: Preview an inclusive date range
+        run: python create_daily_memo.py --start-date 2026-09-04 --end-date 2026-09-21 --dry-run
