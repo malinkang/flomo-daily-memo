@@ -1,0 +1,83 @@
+name: Create Daily Flomo Memo
+
+on:
+  schedule:
+    # Daily at 00:00 Asia/Shanghai (16:00 UTC on the previous day).
+    - cron: '0 16 * * *'
+  workflow_dispatch:
+    inputs:
+      date:
+        description: '笔记日期 YYYY-MM-DD，留空使用北京时间今天'
+        required: false
+        type: string
+      dry_run:
+        description: '仅预览，不创建笔记，也不需要 Secrets'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flomo-daily-memo
+  cancel-in-progress: false
+
+jobs:
+  create-memo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check configuration
+        id: config
+        env:
+          FLOMO_TOKEN: ${{ secrets.FLOMO_TOKEN }}
+          FLOMO_AUTHORIZATION: ${{ secrets.FLOMO_AUTHORIZATION }}
+          FLOMO_DEVICE_ID: ${{ secrets.FLOMO_DEVICE_ID }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [[ "$DRY_RUN" == "true" ]] || { [[ -n "$FLOMO_TOKEN" || -n "$FLOMO_AUTHORIZATION" ]] && [[ -n "$FLOMO_DEVICE_ID" ]]; }; then
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          elif [[ "$EVENT_NAME" == "schedule" ]]; then
+            echo '::notice::请先配置 FLOMO_TOKEN 和 FLOMO_DEVICE_ID；本次定时任务跳过。'
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+          else
+            echo '::error::请配置 FLOMO_TOKEN 和 FLOMO_DEVICE_ID，或选择 dry_run 预览。'
+            exit 1
+          fi
+
+      - name: Checkout repository
+        if: steps.config.outputs.ready == 'true'
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        if: steps.config.outputs.ready == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install dependencies
+        if: steps.config.outputs.ready == 'true'
+        run: python -m pip install -r requirements.txt
+
+      - name: Create or preview daily memo
+        if: steps.config.outputs.ready == 'true'
+        env:
+          FLOMO_TOKEN: ${{ secrets.FLOMO_TOKEN }}
+          FLOMO_AUTHORIZATION: ${{ secrets.FLOMO_AUTHORIZATION }}
+          FLOMO_DEVICE_ID: ${{ secrets.FLOMO_DEVICE_ID }}
+          MEMO_DATE: ${{ inputs.date }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          args=()
+          if [[ -n "$MEMO_DATE" ]]; then
+            args+=(--date "$MEMO_DATE")
+          fi
+          if [[ "$DRY_RUN" == "true" ]]; then
+            args+=(--dry-run)
+          fi
+          python create_daily_memo.py "${args[@]}"
